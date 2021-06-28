@@ -115,3 +115,60 @@ CREATE TABLE DetalleDeAsistencias (
 )
 GO
 -- Fin tabla DetalleDeAsistencias.
+
+/*
+	Creación de restricciones.
+*/
+
+-- Clave primaria de tabla Usuarios.
+ALTER TABLE Usuarios ADD CONSTRAINT pk_usuarios_IdUsuario
+PRIMARY KEY NONCLUSTERED(IdUsuario)
+GO
+
+-- Clave primaria de tabla EquiposTecnologicos.
+ALTER TABLE EquiposTecnologicos ADD CONSTRAINT pk_EquiposTecnologicos_IdEquipo
+PRIMARY KEY NONCLUSTERED(IdEquipo)
+GO
+
+-- Clave primaria de tabla Areas.
+ALTER TABLE Areas ADD CONSTRAINT pk_Areas_IdArea
+PRIMARY KEY NONCLUSTERED(IdArea)
+GO
+
+-- Clave primaria de tabla Empleados.
+ALTER TABLE Empleados ADD CONSTRAINT pk_Empleados_CodEmpleado
+PRIMARY KEY NONCLUSTERED(CodEmpleado)
+GO
+
+-- Clave primaria de tabla Asistencias.
+ALTER TABLE Asistencias ADD CONSTRAINT pk_Asistencias_IdAsistencia
+PRIMARY KEY NONCLUSTERED(IdAsistencia)
+GO
+
+-- Clave primaria de tabla DetalleDeAsistencias.
+ALTER TABLE DetalleDeAsistencias ADD CONSTRAINT pk_DetalleDeAsistencias_IdDetalle
+PRIMARY KEY NONCLUSTERED(IdDetalle)
+GO
+
+-- Claves foraneas en tabla EquiposTecnologicos.
+ALTER TABLE EquiposTecnologicos ADD CONSTRAINT fk_EquiposTecnologicos_CodEmpleado
+FOREIGN KEY(CodEmpleado) REFERENCES Empleados(CodEmpleado) ON UPDATE CASCADE ON DELETE CASCADE
+GO
+ALTER TABLE EquiposTecnologicos ADD CONSTRAINT fk_EquiposTecnologicos_CreadoPorUserName
+FOREIGN KEY(CreadoPorUserName) REFERENCES Usuarios(IdUsuario) ON UPDATE CASCADE ON DELETE CASCADE
+GO
+
+-- Clave foranea en tabla Empleados.
+ALTER TABLE Empleados ADD CONSTRAINT fk_Empleados_IdArea
+FOREIGN KEY(IdArea) REFERENCES Areas(IdArea) ON UPDATE CASCADE ON DELETE CASCADE
+GO
+
+-- Clave foranea en tabla Asistencias.
+ALTER TABLE Asistencias ADD CONSTRAINT fk_Asistencias_CodEmpleado
+FOREIGN KEY(CodEmpleado) REFERENCES Empleados(CodEmpleado) ON UPDATE CASCADE ON DELETE CASCADE
+GO
+
+-- Clave foranea en tabla DetalleDeAsistencias.
+ALTER TABLE DetalleDeAsistencias ADD CONSTRAINT fk_DetalleDeAsistencias_IdAsistencia
+FOREIGN KEY(IdAsistencia) REFERENCES Asistencias(IdAsistencia) ON UPDATE CASCADE ON DELETE CASCADE
+GO
