@@ -172,3 +172,72 @@ GO
 ALTER TABLE DetalleDeAsistencias ADD CONSTRAINT fk_DetalleDeAsistencias_IdAsistencia
 FOREIGN KEY(IdAsistencia) REFERENCES Asistencias(IdAsistencia) ON UPDATE CASCADE ON DELETE CASCADE
 GO
+
+/*
+	Creación de consultas.
+*/
+-- Mostrar todas las áreas y organizarlas en orden a - z.
+SELECT IdArea, Nombre, Funcion, Observacion FROM Areas ORDER BY Nombre
+
+-- Mostrar lista de empleados y organizarlas por áreas en orden a - z
+SELECT t1.CodEmpleado, t1.Nombre, t1.Apellido, t1.Identificacion, t1.Cargo, t2.Nombre as Area, t1.Observacion
+FROM Empleados as t1
+INNER JOIN Areas as t2
+ON t1.IdArea = t2.IdArea
+ORDER BY t2.Nombre
+
+-- Mostrar lista de todos los equipos que estan registrados.
+SELECT t1.IdEquipo, t1.Descripcion, t1.Modelo, t1.Marca, t1.NumeroDeSerie, t1.CodigoInterno, t1.Estado, t2.Nombre + ' ' + t2.Apellido AS Empleado, t1.ValorMonetario, t3.UserName AS Usuario, t1.Observacion 
+FROM EquiposTecnologicos AS t1
+INNER JOIN Empleados AS t2
+ON t1.CodEmpleado = t2.CodEmpleado
+INNER JOIN Usuarios AS t3
+ON t1.CreadoPorUserName = t3.IdUsuario
+ORDER BY t1.Descripcion
+
+-- Mostrar lista de todos los equipos que estan registrados en un area específico.
+DECLARE @area int = 1
+SELECT t1.IdEquipo, t4.Nombre AS Area ,t1.Descripcion, t1.Modelo, t1.Marca, t1.NumeroDeSerie, t1.CodigoInterno, t1.Estado, t2.Nombre + ' ' + t2.Apellido AS Empleado, t1.ValorMonetario, t3.UserName AS Usuario, t1.Observacion 
+FROM EquiposTecnologicos AS t1
+INNER JOIN Empleados AS t2
+ON t1.CodEmpleado = t2.CodEmpleado
+INNER JOIN Usuarios AS t3
+ON t1.CreadoPorUserName = t3.IdUsuario
+INNER JOIN Areas AS T4
+ON t2.IdArea = t4.IdArea
+WHERE t4.IdArea = @area
+ORDER BY t1.Descripcion
+
+-- Mostrar lista de todos los equipos que estan registrados ordenarlos por valor monetario de mayor a menor.
+SELECT t1.IdEquipo, t1.Descripcion, t1.Modelo, t1.Marca, t1.NumeroDeSerie, t1.CodigoInterno, t1.Estado, t2.Nombre + ' ' + t2.Apellido AS Empleado, t1.ValorMonetario, t3.UserName AS Usuario, t1.Observacion 
+FROM EquiposTecnologicos AS t1
+INNER JOIN Empleados AS t2
+ON t1.CodEmpleado = t2.CodEmpleado
+INNER JOIN Usuarios AS t3
+ON t1.CreadoPorUserName = t3.IdUsuario
+ORDER BY t1.ValorMonetario DESC
+
+-- Mostrar lista general de entrada y salida del personal, filtrar por rango de fechas.
+DECLARE @FechaInicial Datetime = '2021/06/28'
+DECLARE @FechaFinal Datetime = '2021/06/29'
+SELECT t1.IdAsistencia, t3.Nombre + ' ' + t3.Apellido as Empleado ,t2.FechaHoraEntrada, t2.FechaHoraSalida, t2.Observacion
+FROM Asistencias AS t1
+INNER JOIN DetalleDeAsistencias AS t2
+ON t1.IdAsistencia = t2.IdAsistencia
+INNER JOIN Empleados AS t3
+ON T1.CodEmpleado = t3.CodEmpleado
+WHERE t2.FechaHoraEntrada BETWEEN @FechaInicial AND @FechaFinal
+
+--Mostrar lista general de entrada y salida del personal, filtrar por rango de fechas y areas.
+DECLARE @FechaInicialDos Datetime = '2021/06/28'
+DECLARE @FechaFinalDos Datetime = '2021/07/01'
+DECLARE @AreaDos Int = 1;
+SELECT t1.IdAsistencia, t4.Nombre as Area ,t3.Nombre + ' ' + t3.Apellido as Empleado ,t2.FechaHoraEntrada, t2.FechaHoraSalida, t2.Observacion
+FROM Asistencias AS t1
+INNER JOIN DetalleDeAsistencias AS t2
+ON t1.IdAsistencia = t2.IdAsistencia
+INNER JOIN Empleados AS t3
+ON T1.CodEmpleado = t3.CodEmpleado
+INNER JOIN Areas AS t4
+ON t3.IdArea = t4.IdArea
+WHERE t2.FechaHoraEntrada BETWEEN @FechaInicialDos AND @FechaFinalDos AND t3.IdArea = @AreaDos
