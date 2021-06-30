@@ -1,5 +1,6 @@
 /*
-	****** Encabezado ********
+			****** Script Base de datos ********
+	**** Análisis y diseño de sistemas orientado a objetos ****
 */
 
 USE master
@@ -42,6 +43,18 @@ GO
 /*
 	Creación de tablas.
 */
+
+-- Tabla LogTablas
+CREATE TABLE LogTablas
+(
+	IdLog INT IDENTITY(1,1) NOT NULL,
+	NombreTabla VARCHAR(255) NOT NULL,
+	Accion VARCHAR(6) NOT NULL,
+	Descripcion VARCHAR(255) NOT NULL,
+	Usuario VARCHAR(20) NOT NULL,
+	Fecha DATETIME NOT NULL
+)
+GO
 
 -- Tabla Usuarios.
 CREATE TABLE Usuarios (
@@ -120,6 +133,16 @@ GO
 	Creación de restricciones.
 */
 
+-- Clave primaria de tabla LogTablas
+ALTER TABLE LogTablas ADD CONSTRAINT pk_logtablas_IdLog 
+PRIMARY KEY NONCLUSTERED(IdLog)
+GO
+
+-- Creando restricción para campo Accion (Solo permite INSERT, DELETE, UPDATE)
+ALTER TABLE LogTablas ADD CONSTRAINT ck_logtablas_Accion 
+CHECK(Accion in ('INSERT', 'DELETE', 'UPDATE'))
+GO
+
 -- Clave primaria de tabla Usuarios.
 ALTER TABLE Usuarios ADD CONSTRAINT pk_usuarios_IdUsuario
 PRIMARY KEY NONCLUSTERED(IdUsuario)
@@ -173,75 +196,6 @@ ALTER TABLE DetalleDeAsistencias ADD CONSTRAINT fk_DetalleDeAsistencias_IdAsiste
 FOREIGN KEY(IdAsistencia) REFERENCES Asistencias(IdAsistencia) ON UPDATE CASCADE ON DELETE CASCADE
 GO
 
-/*
-	Creación de consultas.
-*/
--- Mostrar todas las áreas y organizarlas en orden a - z.
-SELECT IdArea, Nombre, Funcion, Observacion FROM Areas ORDER BY Nombre
-GO
--- Mostrar lista de empleados y organizarlas por áreas en orden a - z
-SELECT t1.CodEmpleado, t1.Nombre, t1.Apellido, t1.Identificacion, t1.Cargo, t2.Nombre as Area, t1.Observacion
-FROM Empleados as t1
-INNER JOIN Areas as t2
-ON t1.IdArea = t2.IdArea
-ORDER BY t2.Nombre
-GO
--- Mostrar lista de todos los equipos que estan registrados.
-SELECT t1.IdEquipo, t1.Descripcion, t1.Modelo, t1.Marca, t1.NumeroDeSerie, t1.CodigoInterno, t1.Estado, t2.Nombre + ' ' + t2.Apellido AS Empleado, t1.ValorMonetario, t3.UserName AS Usuario, t1.Observacion 
-FROM EquiposTecnologicos AS t1
-INNER JOIN Empleados AS t2
-ON t1.CodEmpleado = t2.CodEmpleado
-INNER JOIN Usuarios AS t3
-ON t1.CreadoPorUserName = t3.IdUsuario
-ORDER BY t1.Descripcion
-GO
--- Mostrar lista de todos los equipos que estan registrados en un area específico.
-DECLARE @area int = 1
-SELECT t1.IdEquipo, t4.Nombre AS Area ,t1.Descripcion, t1.Modelo, t1.Marca, t1.NumeroDeSerie, t1.CodigoInterno, t1.Estado, t2.Nombre + ' ' + t2.Apellido AS Empleado, t1.ValorMonetario, t3.UserName AS Usuario, t1.Observacion 
-FROM EquiposTecnologicos AS t1
-INNER JOIN Empleados AS t2
-ON t1.CodEmpleado = t2.CodEmpleado
-INNER JOIN Usuarios AS t3
-ON t1.CreadoPorUserName = t3.IdUsuario
-INNER JOIN Areas AS T4
-ON t2.IdArea = t4.IdArea
-WHERE t4.IdArea = @area
-ORDER BY t1.Descripcion
-GO
--- Mostrar lista de todos los equipos que estan registrados ordenarlos por valor monetario de mayor a menor.
-SELECT t1.IdEquipo, t1.Descripcion, t1.Modelo, t1.Marca, t1.NumeroDeSerie, t1.CodigoInterno, t1.Estado, t2.Nombre + ' ' + t2.Apellido AS Empleado, t1.ValorMonetario, t3.UserName AS Usuario, t1.Observacion 
-FROM EquiposTecnologicos AS t1
-INNER JOIN Empleados AS t2
-ON t1.CodEmpleado = t2.CodEmpleado
-INNER JOIN Usuarios AS t3
-ON t1.CreadoPorUserName = t3.IdUsuario
-ORDER BY t1.ValorMonetario DESC
-GO
--- Mostrar lista general de entrada y salida del personal, filtrar por rango de fechas.
-DECLARE @FechaInicial Datetime = '2021/06/28'
-DECLARE @FechaFinal Datetime = '2021/06/29'
-SELECT t1.IdAsistencia, t3.Nombre + ' ' + t3.Apellido as Empleado ,t2.FechaHoraEntrada, t2.FechaHoraSalida, t2.Observacion
-FROM Asistencias AS t1
-INNER JOIN DetalleDeAsistencias AS t2
-ON t1.IdAsistencia = t2.IdAsistencia
-INNER JOIN Empleados AS t3
-ON T1.CodEmpleado = t3.CodEmpleado
-WHERE t2.FechaHoraEntrada BETWEEN @FechaInicial AND @FechaFinal
-GO
---Mostrar lista general de entrada y salida del personal, filtrar por rango de fechas y areas.
-DECLARE @FechaInicialDos Datetime = '2021/06/28'
-DECLARE @FechaFinalDos Datetime = '2021/07/01'
-DECLARE @AreaDos Int = 1;
-SELECT t1.IdAsistencia, t4.Nombre as Area ,t3.Nombre + ' ' + t3.Apellido as Empleado ,t2.FechaHoraEntrada, t2.FechaHoraSalida, t2.Observacion
-FROM Asistencias AS t1
-INNER JOIN DetalleDeAsistencias AS t2
-ON t1.IdAsistencia = t2.IdAsistencia
-INNER JOIN Empleados AS t3
-ON T1.CodEmpleado = t3.CodEmpleado
-INNER JOIN Areas AS t4
-ON t3.IdArea = t4.IdArea
-WHERE t2.FechaHoraEntrada BETWEEN @FechaInicialDos AND @FechaFinalDos AND t3.IdArea = @AreaDos
-GO
 /*
 	Creación de procedimientos almacenados.
 */
@@ -710,3 +664,172 @@ BEGIN
 END
 GO
 -- Fin procedimiento almacenado DetalleDeAsistencias.
+
+/*
+	Creación de disparadores de eventos.
+*/
+--	Creando triggers para log de la tabla Usuarios.
+--	Trigger insert
+CREATE TRIGGER tr_UsuariosInsertar ON Usuarios FOR INSERT
+AS
+SET NOCOUNT ON ---- Desactivamos registro por fila
+DECLARE @Tabla VARCHAR(255) = 'Usuarios'
+DECLARE @Accion VARCHAR(6) = 'INSERT'
+DECLARE @Descripcion VARCHAR(255)
+SELECT @Descripcion = Nombre + ' ' + Apellido + ' Cargo: ' + Cargo + ' RolDeAcceso: ' + RolDeAcceso + ' UserName: ' + UserName FROM inserted 
+INSERT INTO bdsoft..LogTablas VALUES(@Tabla, @Accion,'Se le ha otorgado acceso al sistema a: ' + @Descripcion, USER, GETDATE())
+GO
+--	Trigger Update
+CREATE TRIGGER tr_UsuariosUpdate ON Usuarios FOR UPDATE
+AS
+SET NOCOUNT ON ---- Desactivamos registro por fila
+DECLARE @Tabla VARCHAR(255) = 'Usuarios'
+DECLARE @Accion VARCHAR(6) = 'UPDATE'
+DECLARE @Descripcion VARCHAR(255)
+SELECT @Descripcion = Nombre + ' ' + Apellido + ' Cargo: ' + Cargo + ' RolDeAcceso: ' + RolDeAcceso + ' UserName: ' + UserName FROM deleted 
+INSERT INTO bdsoft..LogTablas VALUES(@Tabla, @Accion,'Se realizo un cambio en el usuario: ' + @Descripcion, USER, GETDATE())
+GO
+--	Trigger Delete
+CREATE TRIGGER tr_UsuariosDelete ON Usuarios FOR DELETE
+AS
+SET NOCOUNT ON ---- Desactivamos registro por fila
+DECLARE @Tabla VARCHAR(255) = 'Usuarios'
+DECLARE @Accion VARCHAR(6) = 'DELETE'
+DECLARE @Descripcion VARCHAR(255)
+SELECT @Descripcion = Nombre + ' ' + Apellido + ' Cargo: ' + Cargo + ' RolDeAcceso: ' + RolDeAcceso + ' UserName: ' + UserName FROM deleted 
+INSERT INTO bdsoft..LogTablas VALUES(@Tabla, @Accion,'Fue eliminado el usuario: ' + @Descripcion, USER, GETDATE())
+GO
+
+--	Creando triggers para log de la tabla EquiposTecnologicos.
+--	Trigger insert
+CREATE TRIGGER tr_EquiposTecnologicosInsertar ON EquiposTecnologicos FOR INSERT
+AS
+SET NOCOUNT ON ---- Desactivamos registro por fila
+DECLARE @Tabla VARCHAR(255) = 'EquiposTecnologicos'
+DECLARE @Accion VARCHAR(6) = 'INSERT'
+DECLARE @Descripcion VARCHAR(255)
+SELECT @Descripcion = Descripcion + ' Modelo: ' + Modelo + ' Estado: ' + Estado FROM inserted 
+INSERT INTO bdsoft..LogTablas VALUES(@Tabla, @Accion,'Se agrego el equipo: ' + @Descripcion, USER, GETDATE())
+GO
+--	Trigger Update
+CREATE TRIGGER tr_EquiposTecnologicosUpdate ON EquiposTecnologicos FOR UPDATE
+AS
+SET NOCOUNT ON ---- Desactivamos registro por fila
+DECLARE @Tabla VARCHAR(255) = 'EquiposTecnologicos'
+DECLARE @Accion VARCHAR(6) = 'UPDATE'
+DECLARE @Descripcion VARCHAR(255)
+SELECT @Descripcion = Descripcion + ' Modelo: ' + Modelo + ' Estado: ' + Estado FROM deleted 
+INSERT INTO bdsoft..LogTablas VALUES(@Tabla, @Accion,'Se realizo un cambio en el equipo: ' + @Descripcion, USER, GETDATE())
+GO
+--	Trigger Delete
+CREATE TRIGGER tr_EquiposTecnologicosDelete ON EquiposTecnologicos FOR DELETE
+AS
+SET NOCOUNT ON ---- Desactivamos registro por fila
+DECLARE @Tabla VARCHAR(255) = 'EquiposTecnologicos'
+DECLARE @Accion VARCHAR(6) = 'DELETE'
+DECLARE @Descripcion VARCHAR(255)
+SELECT @Descripcion = Descripcion + ' Modelo: ' + Modelo + ' Estado: ' + Estado FROM deleted 
+INSERT INTO bdsoft..LogTablas VALUES(@Tabla, @Accion,'Fue eliminado el equipo: ' + @Descripcion, USER, GETDATE())
+GO
+
+--	Creando triggers para log de la tabla Empleados.
+--	Trigger insert
+CREATE TRIGGER tr_EmpleadosInsertar ON Empleados FOR INSERT
+AS
+SET NOCOUNT ON ---- Desactivamos registro por fila
+DECLARE @Tabla VARCHAR(255) = 'Empleados'
+DECLARE @Accion VARCHAR(6) = 'INSERT'
+DECLARE @Descripcion VARCHAR(255)
+SELECT @Descripcion = Nombre + ' ' + Apellido + ' Identificación: ' + Identificacion + ' Cargo: ' + Cargo FROM inserted 
+INSERT INTO bdsoft..LogTablas VALUES(@Tabla, @Accion,'Se agrego el empleado: ' + @Descripcion, USER, GETDATE())
+GO
+--	Trigger Update
+CREATE TRIGGER tr_EmpleadosUpdate ON Empleados FOR UPDATE
+AS
+SET NOCOUNT ON ---- Desactivamos registro por fila
+DECLARE @Tabla VARCHAR(255) = 'Empleados'
+DECLARE @Accion VARCHAR(6) = 'UPDATE'
+DECLARE @Descripcion VARCHAR(255)
+SELECT @Descripcion = Nombre + ' ' + Apellido + ' Identificación: ' + Identificacion + ' Cargo: ' + Cargo FROM deleted 
+INSERT INTO bdsoft..LogTablas VALUES(@Tabla, @Accion,'Se realizo un cambio en el empleado: ' + @Descripcion, USER, GETDATE())
+GO
+--	Trigger Delete
+CREATE TRIGGER tr_EmpleadosDelete ON Empleados FOR DELETE
+AS
+SET NOCOUNT ON ---- Desactivamos registro por fila
+DECLARE @Tabla VARCHAR(255) = 'Empleados'
+DECLARE @Accion VARCHAR(6) = 'DELETE'
+DECLARE @Descripcion VARCHAR(255)
+SELECT @Descripcion = Nombre + ' ' + Apellido + ' Identificación: ' + Identificacion + ' Cargo: ' + Cargo FROM deleted 
+INSERT INTO bdsoft..LogTablas VALUES(@Tabla, @Accion,'Fue eliminado el empleado: ' + @Descripcion, USER, GETDATE())
+GO
+
+/*
+	Creación de consultas.
+*/
+-- Mostrar todas las áreas y organizarlas en orden a - z.
+SELECT IdArea, Nombre, Funcion, Observacion FROM Areas ORDER BY Nombre
+GO
+-- Mostrar lista de empleados y organizarlas por áreas en orden a - z
+SELECT t1.CodEmpleado, t1.Nombre, t1.Apellido, t1.Identificacion, t1.Cargo, t2.Nombre as Area, t1.Observacion
+FROM Empleados as t1
+INNER JOIN Areas as t2
+ON t1.IdArea = t2.IdArea
+ORDER BY t2.Nombre
+GO
+-- Mostrar lista de todos los equipos que estan registrados.
+SELECT t1.IdEquipo, t1.Descripcion, t1.Modelo, t1.Marca, t1.NumeroDeSerie, t1.CodigoInterno, t1.Estado, t2.Nombre + ' ' + t2.Apellido AS Empleado, t1.ValorMonetario, t3.UserName AS Usuario, t1.Observacion 
+FROM EquiposTecnologicos AS t1
+INNER JOIN Empleados AS t2
+ON t1.CodEmpleado = t2.CodEmpleado
+INNER JOIN Usuarios AS t3
+ON t1.CreadoPorUserName = t3.IdUsuario
+ORDER BY t1.Descripcion
+GO
+-- Mostrar lista de todos los equipos que estan registrados en un area específico.
+DECLARE @area int = 1
+SELECT t1.IdEquipo, t4.Nombre AS Area ,t1.Descripcion, t1.Modelo, t1.Marca, t1.NumeroDeSerie, t1.CodigoInterno, t1.Estado, t2.Nombre + ' ' + t2.Apellido AS Empleado, t1.ValorMonetario, t3.UserName AS Usuario, t1.Observacion 
+FROM EquiposTecnologicos AS t1
+INNER JOIN Empleados AS t2
+ON t1.CodEmpleado = t2.CodEmpleado
+INNER JOIN Usuarios AS t3
+ON t1.CreadoPorUserName = t3.IdUsuario
+INNER JOIN Areas AS T4
+ON t2.IdArea = t4.IdArea
+WHERE t4.IdArea = @area
+ORDER BY t1.Descripcion
+GO
+-- Mostrar lista de todos los equipos que estan registrados ordenarlos por valor monetario de mayor a menor.
+SELECT t1.IdEquipo, t1.Descripcion, t1.Modelo, t1.Marca, t1.NumeroDeSerie, t1.CodigoInterno, t1.Estado, t2.Nombre + ' ' + t2.Apellido AS Empleado, t1.ValorMonetario, t3.UserName AS Usuario, t1.Observacion 
+FROM EquiposTecnologicos AS t1
+INNER JOIN Empleados AS t2
+ON t1.CodEmpleado = t2.CodEmpleado
+INNER JOIN Usuarios AS t3
+ON t1.CreadoPorUserName = t3.IdUsuario
+ORDER BY t1.ValorMonetario DESC
+GO
+-- Mostrar lista general de entrada y salida del personal, filtrar por rango de fechas.
+DECLARE @FechaInicial Datetime = '2021/06/28'
+DECLARE @FechaFinal Datetime = '2021/06/29'
+SELECT t1.IdAsistencia, t3.Nombre + ' ' + t3.Apellido as Empleado ,t2.FechaHoraEntrada, t2.FechaHoraSalida, t2.Observacion
+FROM Asistencias AS t1
+INNER JOIN DetalleDeAsistencias AS t2
+ON t1.IdAsistencia = t2.IdAsistencia
+INNER JOIN Empleados AS t3
+ON T1.CodEmpleado = t3.CodEmpleado
+WHERE t2.FechaHoraEntrada BETWEEN @FechaInicial AND @FechaFinal
+GO
+--Mostrar lista general de entrada y salida del personal, filtrar por rango de fechas y areas.
+DECLARE @FechaInicialDos Datetime = '2021/06/28'
+DECLARE @FechaFinalDos Datetime = '2021/07/01'
+DECLARE @AreaDos Int = 1;
+SELECT t1.IdAsistencia, t4.Nombre as Area ,t3.Nombre + ' ' + t3.Apellido as Empleado ,t2.FechaHoraEntrada, t2.FechaHoraSalida, t2.Observacion
+FROM Asistencias AS t1
+INNER JOIN DetalleDeAsistencias AS t2
+ON t1.IdAsistencia = t2.IdAsistencia
+INNER JOIN Empleados AS t3
+ON T1.CodEmpleado = t3.CodEmpleado
+INNER JOIN Areas AS t4
+ON t3.IdArea = t4.IdArea
+WHERE t2.FechaHoraEntrada BETWEEN @FechaInicialDos AND @FechaFinalDos AND t3.IdArea = @AreaDos
+GO
